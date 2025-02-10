@@ -1,0 +1,34 @@
+local RP = game:GetService("ReplicatedStorage")
+
+local player = game.Players.LocalPlayer
+
+local leaveButton = player.PlayerGui:WaitForChild("Queue"):WaitForChild("Leave")
+
+local joinRemote = RP.Queue.Join
+local leaveRemote = RP.Queue.Leave
+
+local Shared = {}
+local Local = {}
+
+function Shared.OnStart()
+	joinRemote.OnClientEvent:Connect(function(camPos)
+		local camera = game.Workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.CFrame = camPos
+		
+		leaveButton.Visible = true
+	end)
+	
+	leaveButton.MouseButton1Click:Connect(function()
+		local camera = game.Workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Custom
+		
+		leaveRemote:FireServer()
+		
+		leaveButton.Visible = false
+	end)
+end
+
+
+
+return Shared
