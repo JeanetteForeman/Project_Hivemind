@@ -1,0 +1,178 @@
+local TeleportService = game:GetService("TeleportService")
+local RP = game:GetService("ReplicatedStorage")
+local Players = game.Players
+
+local teleportID = 133343131595228
+
+local queuesFolder = game.Workspace.Queues
+
+local bindableEvents = RP:WaitForChild("Queue"):WaitForChild("BindableEvents - Server")
+
+local joinRemote = RP.Queue.Join
+local leaveRemote = RP.Queue.Leave
+
+local Shared = {}
+local Local = {}
+
+function Shared.OnStart()
+	for _, room in ipairs(queuesFolder:GetChildren()) do
+		local enterHitBox = room.Refs.Enter
+		local enterPos = room.Refs.EnterPos
+		local exitPos = room.Refs.ExitPos
+		
+		local config = room.Configuration
+		
+		local camPos = room.Refs.CamPos.CFrame
+		
+		local reservedServer
+		local function ReserveNewServer()
+			if config.TeleportID.Value ~= 0 then
+				reservedServer = TeleportService:ReserveServer(config.TeleportID.Value)
+			else
+				reservedServer = TeleportService:ReserveServer(teleportID)
+			end
+		end
+		ReserveNewServer()
+		
+		local playerLimit
+		if config.MaximumPlayers.Value == 0 then
+			playerLimit = tonumber(room.Name)
+		else
+			playerLimit = config.MaximumPlayers.Value
+		end
+		
+		local countDownTime
+		if config.CountDownTime.Value > 0 then
+			countDownTime = config.CountDownTime.Value
+		else
+			if playerLimit <= 2 then
+				countDownTime = 10
+			elseif playerLimit == 3 or playerLimit == 4 then
+				countDownTime = 20
+			else
+				countDownTime = 30
+			end
+		end
+		
+		local inQueue = room.InQueue
+		
+		local billboard = room.Refs.UI:WaitForChild("BillboardGui")
+		local playersUI = billboard.Players
+		playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+		local timerUI = billboard.Time
+		timerUI.Text = countDownTime .. " Seconds"
+		
+		local countdownRoutine
+		
+		local canQueue = true
+		local counting = false
+		local db = false
+		enterHitBox.Touched:Connect(function(other)
+			if canQueue and not db and other.Parent:FindFirstChild("Humanoid") and (#inQueue:GetChildren() < playerLimit) and not inQueue:FindFirstChild(other.Parent.Name) then
+				db = true
+				
+				local plr = Players:GetPlayerFromCharacter(other.Parent)
+				other.Parent.PrimaryPart:PivotTo(enterPos.CFrame)
+				
+				if not inQueue:FindFirstChild(other.Parent.Name) then
+					local newPlayer = Instance.new("IntValue", inQueue)
+					newPlayer.Name = other.Parent.Name
+					newPlayer.Value = plr.UserId
+						
+					bindableEvents.PlayerJoinedQueue:Fire(room, #inQueue:GetChildren())
+					if #inQueue:GetChildren() >= playerLimit then
+						bindableEvents.QueueFull:Fire(room)
+					end
+				end
+				
+				playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+				joinRemote:FireClient(plr, camPos)
+				
+				if not counting and config.MinimumPlayers.Value <= #inQueue:GetChildren() then
+					task.spawn(function()
+						counting = true
+						
+						local t = countDownTime
+						while config.MinimumPlayers.Value <= #inQueue:GetChildren() do
+							task.wait(1)
+							t -= 1
+
+							timerUI.Text = t .. " Seconds"
+
+							playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+							if #inQueue:GetChildren() == 0 then
+								timerUI.Text = countDownTime .. " Seconds"
+								playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+								counting = false
+								return
+							end
+
+							if t <= 0 or (#inQueue:GetChildren() == playerLimit and config.InstantTeleport.Value == true) then
+								Local.TeleportQueue(inQueue, reservedServer)
+								canQueue = false
+								timerUI.Text = "Teleporting..."
+								
+								bindableEvents.StartedTeleport:Fire(room)
+								
+								repeat task.wait() until #inQueue:GetChildren() == 0
+								timerUI.Text = countDownTime .. " Seconds"
+								playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+								canQueue = true
+
+								bindableEvents.TeleportEnded:Fire(room)
+
+								ReserveNewServer()
+								counting = false
+								return
+							end
+						end
+						
+						counting = false
+						timerUI.Text = countDownTime .. " Seconds"
+						playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+					end)
+				end
+				
+				
+				task.wait(.5)
+				db = false
+			end
+		end)
+		
+		leaveRemote.OnServerEvent:Connect(function(player)
+			Local.LeaveQueue(player)
+		
+			playersUI.Text = #inQueue:GetChildren() .. "/" .. playerLimit
+		end)
+	end
+	
+	Players.PlayerRemoving:Connect(function(plr)
+		Local.LeaveQueue(plr)
+	end)
+end
+
+function Local.LeaveQueue(plr)
+	for _, room in ipairs(queuesFolder:GetChildren()) do
+		if room.InQueue:FindFirstChild(plr.Name) then
+			room.InQueue[plr.Name]:Destroy()
+			
+			bindableEvents.PlayerLeftQueue:Fire(room, #room.InQueue:GetChildren())
+			
+			if plr.Character and plr.Character.PrimaryPart then
+				plr.Character.PrimaryPart:PivotTo(room.Refs.ExitPos.CFrame)
+			end
+		end
+	end
+end
+
+function Local.TeleportQueue(queueFold, reservedServer)
+	local party = {}
+	for _, p in ipairs(queueFold:GetChildren()) do
+		table.insert(party, Players:GetPlayerByUserId(p.Value))
+	end
+	
+	--teleport to the game (find beta way, like pre-start the server for every queue room or sum)
+	TeleportService:TeleportToPrivateServer(teleportID, reservedServer, party, "")
+end
+
+return Shared
