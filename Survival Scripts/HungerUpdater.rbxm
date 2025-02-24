@@ -1,0 +1,38 @@
+local player = game.Players.LocalPlayer
+local humanoid = player.Character:WaitForChild("Humanoid", 60)
+
+local Hunger = player:WaitForChild("Hunger")
+
+local criticalState = 0.25
+local okState = 0.6
+
+local gui = script.Parent
+	local hpBackground = gui:WaitForChild("HPBackground", 60)
+		local HungerBar = hpBackground:WaitForChild("HungerBar", 60)
+		local HungerBar2 = hpBackground:WaitForChild("HungerBar2", 60)
+		local HungerIndicator = hpBackground:WaitForChild("HungerIndicator", 60)
+
+local function UpdateHunger()
+	local val = Hunger.Value
+	HungerBar:TweenSize(UDim2.new(val/100, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Linear, 0.15, true)
+	
+	if val <= 100 * criticalState then
+		HungerIndicator.Text = "STARVING"
+		
+		HungerIndicator.TextColor3 = Color3.fromRGB(255, 0, 0) 
+	elseif val <= 100 * okState then
+		HungerIndicator.Text = "Hungry"
+		
+		HungerIndicator.TextColor3 = Color3.fromRGB(255, 210, 25) 
+	else
+		HungerIndicator.Text = "Full"
+		HungerIndicator.TextColor3 = Color3.fromRGB(255, 255, 255)
+		
+	end
+end
+
+UpdateHunger()
+
+Hunger.Changed:Connect(function()
+	UpdateHunger()
+end)
