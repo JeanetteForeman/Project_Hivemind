@@ -1,0 +1,27 @@
+local HungerRate = 20
+local HungerChunk = 2
+
+
+game.Players.PlayerAdded:Connect(function(Player)
+	local Hunger = Instance.new("NumberValue", Player)
+	Hunger.Name = "Hunger"
+	Hunger.Value = 100
+	
+	Player.CharacterAdded:Connect(function()
+		Hunger.Value = 100
+	end)
+	
+	while wait(HungerRate) do
+		if Hunger.Value - HungerChunk >= 0 then
+			Hunger.Value = Hunger.Value - HungerChunk
+			if Hunger.Value > 100 then
+				Hunger.Value = 100
+			end
+		end
+		if Hunger.Value <= 0 then
+			repeat wait(1.01)
+				Player.Character.Humanoid.Health = Player.Character.Humanoid.Health - 30
+			until Hunger.Value > 0 or Player.Character.Humanoid.Health <= 0
+		end
+	end
+end)
