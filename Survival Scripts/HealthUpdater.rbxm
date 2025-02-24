@@ -1,0 +1,54 @@
+local player = game.Players.LocalPlayer
+	local character = player.Character or player.CharacterAdded:wait()
+		local humanoid = character:WaitForChild("Humanoid", 60)
+
+local criticalState = 0.4
+local okState = 0.7
+
+local gui = script.Parent
+	local hurtOverlay = gui:WaitForChild("HurtOverlay", 60)
+	local hpBackground = gui:WaitForChild("HPBackground", 60)
+		local indicator = hpBackground:WaitForChild("Indicator", 60)
+		local playerName = hpBackground:WaitForChild("PlayerName", 60)
+		local HPbar = hpBackground:WaitForChild("HPBar", 60)
+		local HPbar2 = hpBackground:WaitForChild("HPBar2", 60)
+
+
+indicator.Text = math.floor(humanoid.Health).." HP"
+playerName.Text = player.Name
+
+humanoid.HealthChanged:Connect(function(HP)
+	indicator.Text = math.floor(HP).." HP"
+	playerName.Text = player.Name
+	
+	spawn(function()
+		HPbar:TweenSize(UDim2.new((HP / humanoid.MaxHealth), 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 1, true)
+		wait(0.25)
+	end)
+	
+	spawn(function()
+		indicator:TweenPosition(UDim2.new(0, 0, -0.25, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Linear, 0.05, true)
+		wait(0.075)
+		indicator:TweenPosition(UDim2.new(0, 0, 0, 0), Enum.EasingDirection.In, Enum.EasingStyle.Linear, 0.05, true)
+	end)
+	
+	if humanoid.Health <= humanoid.MaxHealth * criticalState then
+		HPbar.BackgroundColor3 = Color3.fromRGB(255, 0, 0) 
+		indicator.TextColor3 = HPbar.BackgroundColor3
+	elseif humanoid.Health <= humanoid.MaxHealth * okState then
+		HPbar.BackgroundColor3 = Color3.fromRGB(255, 210, 25) 
+		indicator.TextColor3 = HPbar.BackgroundColor3
+	else --//Above OK State is Good State
+		indicator.TextColor3 = Color3.new(255, 255, 255)
+		HPbar.BackgroundColor3 = Color3.fromRGB(0, 150, 25) 
+	end
+	
+	--hurtOverlay.Transparency = (HP / humanoid.MaxHealth)
+	
+	--if hurtOverlay.Transparency < 0.75 and HP > 0 then
+	--	hurtOverlay.Visible = true
+	--	hurtOverlay.Transparency = 0.75
+	--elseif HP <= 0 then
+	--	hurtOverlay.Visible = false
+	--end
+end)
