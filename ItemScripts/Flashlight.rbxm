@@ -1,0 +1,9 @@
+script.Parent.Activated:Connect(function()
+	if script.Parent.Handle.SpotLight.Enabled == true then
+		script.Parent.Handle.SpotLight.Enabled = false
+		script.Parent.Handle.Sound:Play()
+	else
+		script.Parent.Handle.SpotLight.Enabled = true
+		script.Parent.Handle.Sound:Play()
+	end
+end)
