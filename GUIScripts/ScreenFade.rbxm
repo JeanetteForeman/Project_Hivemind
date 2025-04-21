@@ -1,0 +1,53 @@
+local TS = game:GetService("TweenService")
+
+function fade(color,inDuration,duration,outDuration)
+	script.Parent.Frame.BackgroundColor3 = color
+	script.Parent.Frame.BackgroundTransparency = 1
+	script.Parent.Frame.Visible = true
+	
+	local tweenFadeInfo = TweenInfo.new(inDuration,Enum.EasingStyle.Linear)
+	local tweenFadeData = {BackgroundTransparency = 0}
+	local tweenFade = TS:Create(script.Parent.Frame,tweenFadeInfo,tweenFadeData)
+	tweenFade:Play()
+	local tweenBlurData = {Size = 14}
+	local tweenBlur = TS:Create(game.Lighting.Blur,tweenFadeInfo,tweenBlurData)
+	tweenBlur:Play()
+	
+	wait(inDuration)
+	wait(duration)
+	
+	local tweenFadeInfo2 = TweenInfo.new(outDuration,Enum.EasingStyle.Linear)
+	local tweenFadeData2 = {BackgroundTransparency = 1}
+	local tweenFade2 = TS:Create(script.Parent.Frame,tweenFadeInfo2,tweenFadeData2)
+	tweenFade2:Play()
+	local tweenBlurData2 = {Size = 0}
+	local tweenBlur2 = TS:Create(game.Lighting.Blur,tweenFadeInfo2,tweenBlurData2)
+	tweenBlur2:Play()
+end
+
+game.ReplicatedStorage.RemoteEvents.Fade.OnClientEvent:Connect(function(color,inDuration,duration,outDuration)
+	fade(color,inDuration,duration,outDuration)
+end)
+
+script.Fade.Event:Connect(function(color,inDuration,duration,outDuration)
+	fade(color,inDuration,duration,outDuration)
+end)
+
+function tweenGradientTransparency(gradient,transparency,duration)
+	local Gradient = gradient
+	local TValue = Instance.new("NumberValue")
+
+	TValue.Parent = Gradient
+	TValue.Value = Gradient.Transparency.Keypoints[1].Value
+
+	TValue.Changed:Connect(function(value)
+		Gradient.Transparency = NumberSequence.new(value)
+	end)
+
+	local tween = TS:Create(
+		TValue,
+		TweenInfo.new(duration,Enum.EasingStyle.Linear),
+		{Value = transparency}
+	)
+	tween:Play()
+end
