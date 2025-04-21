@@ -1,0 +1,83 @@
+local terminal = script.Parent.Frame
+local input = terminal:FindFirstChild("Input")
+local password = "hivemind"
+local maxAttempts = 3
+local attempts = 0
+local messageBox = terminal:FindFirstChild("Message")
+
+local keyboardInput = game:GetService("UserInputService")
+--local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local OpenDoorEvent = ReplicatedStorage.RemoteEvents:FindFirstChild("OpenDoor")
+local terminalPuzzle = game.Workspace:WaitForChild("TerminalPuzzle")
+local remoteEvent = terminalPuzzle.Terminal:FindFirstChild("OpenTerminalUI")
+local puzzle = workspace:FindFirstChild("TerminalPuzzle")
+local linkedDoorValue = game.Workspace.TerminalPuzzle:FindFirstChild("LinkedDoor")
+
+-- hide the UI initially
+terminal.Visible = false
+
+-- function to handle password submission
+local function checkPassword()
+	local userInput = input.Text:lower()
+	if userInput == password then
+		messageBox.BackgroundColor3 = Color3.fromRGB(51, 255, 8)
+		messageBox.Text = "Password is correct!"
+		messageBox.Visible = true
+		task.wait(1)
+		
+		-- TODO: make something happen after solving the puzzle
+		print("LinkedDoor is:", linkedDoorValue.Value)
+		if linkedDoorValue and linkedDoorValue.Value then
+			-- Send the door reference to the server
+			print("Made it here 1")
+			OpenDoorEvent:FireServer(linkedDoorValue.Value)
+		else
+			warn("LinkedDoor not found or has no value!")
+		end
+		
+		messageBox.Visible = false
+		terminal.Visible = false
+		attempts = 0
+	else
+		attempts += 1
+		if not (attempts > maxAttempts) then
+			messageBox.BackgroundColor3 = Color3.fromRGB(243, 41, 2)
+			messageBox.Text = "Password is incorrect! Attempts: " .. attempts .. "/3"
+			messageBox.Visible = true
+			task.wait(0.1)
+			input.Text = ""
+			input:CaptureFocus()
+			
+			task.wait(1)
+			messageBox.Visible = false
+		else
+			print("Too many login attempts! System locked, try again later.")
+			terminal.Visible = false
+			wait(5)
+			attempts = 0
+		end
+	end
+end
+
+-- listen for server remote event to show the UI
+remoteEvent.OnClientEvent:Connect(function()
+	print("got here 2")
+	terminal.Visible = true
+	script.Parent.Enabled = true
+	input:CaptureFocus()
+end)
+
+-- detect when enter is pressed
+input.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		checkPassword()
+	end
+end)
+
+-- close the terminal if player presses esc
+keyboardInput.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.Escape then
+		terminal.Visible = false
+	end
+end)
