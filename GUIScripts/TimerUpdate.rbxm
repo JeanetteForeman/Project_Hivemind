@@ -1,0 +1,96 @@
+local TS = game:GetService("TweenService")
+
+script.clockTick.Event:Connect(function()
+	local clock = script.Parent.Timer.ClockFrame.Clock
+	local tweenGrowInfo = TweenInfo.new(.1,Enum.EasingStyle.Linear)
+	local tweenGrowData = {Size = UDim2.new(0,100,0,100)}
+	local tweenGrow = TS:Create(clock, tweenGrowInfo, tweenGrowData)
+
+	local tweenPos1Info = TweenInfo.new(.1,Enum.EasingStyle.Linear)
+	local tweenPos1Data = {Position = UDim2.new(.5,-50,.5,-50)}
+	local tweenPos1 = TS:Create(clock, tweenPos1Info, tweenPos1Data)
+	
+	tweenGrow:Play()
+	tweenPos1:Play()
+	
+	script.TickSound:Play()
+	script.TickSound.TimePosition = .85
+	
+	wait(.1)
+	local tweenShrinkInfo = TweenInfo.new(.15,Enum.EasingStyle.Linear)
+	local tweenShrinkData = {Size = UDim2.new(0,80,0,80)}
+	local tweenShrink = TS:Create(clock, tweenShrinkInfo, tweenShrinkData)
+	
+	local tweenPos2Info = TweenInfo.new(.15,Enum.EasingStyle.Linear)
+	local tweenPos2Data = {Position = UDim2.new(.5,-40,.5,-40)}
+	local tweenPos2 = TS:Create(clock, tweenPos2Info, tweenPos2Data)
+	
+	tweenShrink:Play()
+	tweenPos2:Play()
+end)
+
+function updateTextColor(timeLeft)
+	local color1 = Color3.fromRGB(0,255,0)
+	local color2 = Color3.fromRGB(255,255,0)
+	local color3 = Color3.fromRGB(255,0,0)
+	local percentage = timeLeft/60
+	if percentage >= .5 then
+		local colorPercent = 1-(percentage-.5)/.5
+		script.Parent.Timer.TimeText.TextColor3 = color1:Lerp(color2,colorPercent)
+	end
+	if percentage < .5 then
+		local colorPercent = (.5-percentage)/.5
+		script.Parent.Timer.TimeText.TextColor3 = color2:Lerp(color3,colorPercent)
+	end
+end
+
+game.ReplicatedStorage.RemoteEvents.Begin60Seconds.OnClientEvent:Connect(function()
+	script.Parent.Enabled = true
+	local timeLeft = 60
+	script.Parent.Timer.TimeText.Text = timeLeft
+	updateTextColor(timeLeft)
+	repeat
+		wait(.25)--1
+		timeLeft = timeLeft - 1
+		script.Parent.Timer.TimeText.Text = timeLeft
+		updateTextColor(timeLeft)
+		script.clockTick:Fire()
+	until timeLeft == 0
+	
+	script.Parent.Enabled = false
+end)
+
+
+
+
+
+--[[function updateTimer(t)
+	local Time = t
+
+	if not TimerText then
+		warn("TimerText not found in GUI! Make sure to set it up correctly.")
+		return
+	end
+	TimerText.Text = string.format("Collect items while you can!")
+	wait(2)
+	Timer.Visible = true
+	local swapColor = true
+
+	local seconds = Time
+	while seconds >0 do
+		if seconds <= 20 then
+			TimerText.TextColor3 = Color3.new(0.75, 0, 0)
+			wait(0.5)
+			TimerText.TextColor3 = Color3.new(1, 1, 1)
+			wait(0.5)
+		else 
+			wait(1)
+		end
+		seconds -= 1
+		TimerText.Text = string.format("Time Left: %02ds", seconds)
+	end
+	TimerText.Text = string.format("Get to safety! Leave the crash site")
+	wait(5)
+	Timer.Visible = false
+	
+end]]
