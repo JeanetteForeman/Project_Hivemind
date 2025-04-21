@@ -1,0 +1,531 @@
+
+local camera = workspace.CurrentCamera
+local TS = game:GetService("TweenService")
+
+local getData = require(game.ReplicatedStorage.GetData)
+local playerData = nil
+repeat
+	wait()
+	playerData = getData.getDataFromPlayer(game.Players.LocalPlayer)
+until playerData ~= nil
+
+
+-- HELPER FUNCTIONS
+function tweenFov(fov,duration)
+	local tweenFovInfo = TweenInfo.new(duration,Enum.EasingStyle.Linear)
+	local tweenFovData = {FieldOfView = fov}
+	local tweenLight = TS:Create(camera,tweenFovInfo,tweenFovData)
+	tweenLight:Play()
+end
+
+function tweenCamToPart(part,duration,ease)
+	local tweenMoveInfo = nil
+	if ease then
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Sine,Enum.EasingDirection.Out)
+	else
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Linear)
+	end
+	local tweenMoveData = {CFrame = part.CFrame}
+	local tweenMove = TS:Create(camera,tweenMoveInfo,tweenMoveData)
+	tweenMove:Play()
+end
+
+function tweenPart(rootPart,goalPart,duration,ease)
+	local tweenMoveInfo = nil
+	if ease then
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Sine,Enum.EasingDirection.Out)
+	else
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Linear)
+	end
+	local tweenMoveData = {CFrame = goalPart.CFrame}
+	local tweenMove = TS:Create(rootPart,tweenMoveInfo,tweenMoveData)
+	tweenMove:Play()
+end
+
+function animateRigs(plane)
+	local rigs1 = plane.Characters:GetChildren()
+	for i = 1, #rigs1 do
+		if rigs1[i]:FindFirstChild("Humanoid") then
+			local animNum = math.random(1,3)
+			local anim = script["RigSit"..animNum]
+			local animTrack = rigs1[i].Humanoid.Animator:LoadAnimation(anim)
+			animTrack:Play()
+		end
+	end
+	local rigs2 = plane.Characters.PlayerPossibleRigs:GetChildren()
+	for i = 1, #rigs2 do
+		local animNum = math.random(1,3)
+		local anim = script["RigSit"..animNum]
+		local animTrack = rigs2[i].Humanoid.Animator:LoadAnimation(anim)
+		animTrack:Play()
+	end
+end
+
+function applyRandomToCharacter(npc1, npc2)
+	local humanoid = npc2:FindFirstChild("Humanoid")
+	if not humanoid then
+		return
+	end
+	local bodyColors = npc2:FindFirstChild("Body Colors")
+	if bodyColors then
+		bodyColors:Destroy()
+	end
+
+	local stuff = npc1:GetChildren()
+	for _, item in pairs(stuff) do
+		if item:IsA("Accessory") then
+			script.AddAccessoryClient.add:Fire(npc2, item)
+		elseif item.Name == "Shirt" then
+			local clone = item:Clone()
+			clone.Parent = npc2
+		elseif item.Name == "Pants" then
+			local clone = item:Clone()
+			clone.Parent = npc2
+		elseif item:IsA("BodyColors") then
+			local clone = item:Clone()
+			clone.Parent = npc2
+		end
+	end
+end
+
+function applyRandomAppearancesToNPC(plane)
+	local NPCs = plane.Characters:GetChildren()
+	for i = 1, #NPCs do
+		if NPCs[i]:FindFirstChild("Humanoid") then
+			local randomNPCs = script.SampleCharacters:GetChildren()
+			local randomNPC = randomNPCs[math.random(1,#randomNPCs)]
+			applyRandomToCharacter(randomNPC, NPCs[i])
+		end
+	end
+end
+
+function applyCharacterAppearanceToNPC(userId, NPC)
+	local humanoid = NPC:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		local success, description = pcall(function()
+			return game.Players:GetHumanoidDescriptionFromUserId(userId)
+		end)
+		if success and description then
+			humanoid:ApplyDescription(description)
+		end
+		NPC.gotChar.Value = true
+	end
+end
+
+function applyPlayerAppearanceToNPCs(plane)
+	local NPCs = plane.Characters.PlayerPossibleRigs:GetChildren()
+	local players = game.Players:GetChildren()
+	for i = 1, #players do
+		applyCharacterAppearanceToNPC(players[i].UserId, NPCs[i])
+	end
+	for i = 1, #NPCs do
+		if NPCs[i].gotChar.Value == false then
+			local randomNPCs = script.SampleCharacters:GetChildren()
+			local randomNPC = randomNPCs[math.random(1,#randomNPCs)]
+			applyRandomToCharacter(randomNPC, NPCs[i])
+		end
+	end
+end
+
+function shakeCamera(intensity, duration)
+	local startTime = tick()
+	local originalCFrame = camera.CFrame
+
+	while tick() - startTime < duration do
+		local shakeOffset = Vector3.new(
+			math.random(-100, 100) * intensity / 100,
+			math.random(-100, 100) * intensity / 100,
+			math.random(-100, 100) * intensity / 100
+		)
+		camera.CFrame = originalCFrame * CFrame.new(shakeOffset)
+		game:GetService("RunService").RenderStepped:Wait()
+	end
+
+	camera.CFrame = originalCFrame
+end
+
+function createExplosion(position, size)
+	local explosion = Instance.new("Explosion")
+	explosion.Position = position
+	explosion.BlastRadius = size
+	explosion.BlastPressure = 0
+	explosion.DestroyJointRadiusPercent = 0
+	explosion.ExplosionType = Enum.ExplosionType.NoCraters
+	explosion.Parent = workspace
+
+	return explosion
+end
+
+function createFire(part)
+	local fire = Instance.new("Fire")
+	fire.Heat = 25
+	fire.Size = 69
+	fire.Parent = part
+
+	return fire
+end
+
+function createParticles(part, color, emitDirection)
+	local particleEmitter = Instance.new("ParticleEmitter")
+	particleEmitter.Color = ColorSequence.new(color)
+	particleEmitter.Lifetime = NumberRange.new(1, 2)
+	particleEmitter.Speed = NumberRange.new(5, 10)
+	particleEmitter.SpreadAngle = Vector2.new(30, 30)
+	particleEmitter.Acceleration = Vector3.new(0, -5, 0)
+	particleEmitter.Rate = 100
+	particleEmitter.EmissionDirection = emitDirection or Enum.NormalId.Front
+	particleEmitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 2)
+	})
+	particleEmitter.Parent = part
+	particleEmitter:Emit(50)
+
+	return particleEmitter
+end
+
+function createColorCorrection(color, contrast, brightness)
+	local colorCorrection = Instance.new("ColorCorrectionEffect")
+	colorCorrection.TintColor = color
+	colorCorrection.Contrast = contrast
+	colorCorrection.Brightness = brightness
+	colorCorrection.Parent = game:GetService("Lighting")
+
+	return colorCorrection
+end
+
+function tweenColorCorrection(colorCorrection, color, contrast, brightness, duration)
+	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+	local tweenGoals = {
+		TintColor = color,
+		Contrast = contrast,
+		Brightness = brightness
+	}
+
+	local tween = TS:Create(colorCorrection, tweenInfo, tweenGoals)
+	tween:Play()
+
+	return tween
+end
+
+-- praying to god this doesnt crash on phones
+local function setPlaneLightsBlack(plane)
+	local overhead1 = plane.Interior.Overhead1
+	local overhead2 = plane.Interior.Overhead2
+	
+	for _, descendant in ipairs(overhead1:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			if descendant.Material == Enum.Material.Neon then
+				descendant.Color = Color3.new(0,0,0)
+			end
+		end
+	end
+	
+	for _, descendant in ipairs(overhead2:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			if descendant.Material == Enum.Material.Neon then
+				descendant.Color = Color3.new(0,0,0)
+			end
+		end
+	end
+	
+end
+
+
+
+script.Start.Event:Connect(function()
+	game.Players.LocalPlayer.PlayerScripts.CoreUI.Change:Fire("Hide")
+	game.Players.LocalPlayer.PlayerGui.ScreenFade.LocalScript.Fade:Fire(Color3.fromRGB(15, 0, 35),1,3,1)
+	wait(1.5)
+	--Make changes here that need to happen when the screen is faded out/black
+	camera.CameraType = Enum.CameraType.Scriptable
+	playerData.CamLockDisable.Value = true
+
+	print("Disabling Loadscreen")
+	game.Players.LocalPlayer.PlayerGui.LoadScreen.Enabled = false
+	local scenePositions = game.ReplicatedStorage.PlaneCrashScene
+	local plane = game.ReplicatedStorage.PlaneModelRigged:Clone()
+	plane.Parent = workspace
+	local planeRoot = plane.RootPart
+	planeRoot.CFrame = scenePositions.Plane1.CFrame
+	local planeAnim = plane.AnimationController:LoadAnimation(script.PlaneAnim)
+	planeAnim:Play()
+	camera.CFrame = scenePositions.CamSpot1.CFrame
+	animateRigs(plane)
+	applyRandomAppearancesToNPC(plane)
+	applyPlayerAppearanceToNPCs(plane)
+
+	wait(2.5)
+	--Cutscene start
+	script.SoundPlayer.PlaySound:Fire("FadeIn", "PlaneEngine")
+	camera.CFrame = scenePositions.CamSpot1.CFrame
+	tweenCamToPart(scenePositions.CamSpot2, 7)
+	tweenPart(planeRoot, scenePositions.Plane2, 7)
+	tweenFov(85,7)
+	wait(7)
+	
+	-- Ryan's additions
+	
+	wait(4)
+	print("SideView")
+	camera.CFrame = scenePositions.SideViewCam.CFrame
+
+	wait(1)
+	script.SoundPlayer.PlaySound:Fire("Play", "SeatbeltChime")
+
+	wait(4)
+
+	print("EngineView")
+	camera.CFrame = scenePositions.EngineViewCam.CFrame
+
+	wait(1)
+
+	local engine1 = plane:FindFirstChild("Engine1") 
+	
+	local redParticles = createParticles(engine1, Color3.fromRGB(255, 0, 0), Enum.NormalId.Front)
+
+	wait(0.8)
+
+	createExplosion(engine1.Position, 10)
+	createFire(engine1)
+
+	script.SoundPlayer.PlaySound:Fire("Play", "Explosion")
+	
+
+	local colorEffect = createColorCorrection(Color3.fromRGB(255, 200, 200), 0.1, -0.1)
+	tweenColorCorrection(colorEffect, Color3.fromRGB(255, 100, 100), 0.4, -0.2, 1)
+
+	script.SoundPlayer.PlaySound:Fire("Play", "CockpitAlarm")
+
+	local currentCF = planeRoot.CFrame
+	local pitchDownCF = currentCF * CFrame.Angles(math.rad(-20), 0, 0)
+
+	local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+	local pitchTween = TS:Create(planeRoot, tweenInfo, {CFrame = pitchDownCF})
+	pitchTween:Play()
+
+	wait(2)
+	print("DiveView")
+	camera.CFrame = scenePositions.DiveViewCam.CFrame
+
+	wait(3)
+
+	local engine2 = plane:FindFirstChild("Engine2")
+
+	createExplosion(engine2.Position, 10)
+	createFire(engine2)
+
+	tweenColorCorrection(colorEffect, Color3.fromRGB(255, 50, 50), 0.6, -0.3, 0.5)
+
+	script.SoundPlayer.PlaySound:Fire("Play", "CockpitAlarmLoud")
+	setPlaneLightsBlack(plane)
+
+	wait(2)
+	print("GroundView")
+	camera.CFrame = scenePositions.GroundViewCam.CFrame
+
+	local steepDiveCF = planeRoot.CFrame * CFrame.Angles(math.rad(-30), 0, 0)
+	local steepDiveTween = TS:Create(planeRoot, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {CFrame = steepDiveCF})
+	steepDiveTween:Play()
+
+	wait()
+
+	local groundPos = Vector3.new(planeRoot.Position.X, planeRoot.Position.Y - 500, planeRoot.Position.Z + 100)
+	local groundPart = Instance.new("Part")
+	groundPart.Anchored = true
+	groundPart.CanCollide = false
+	groundPart.Transparency = 1
+	groundPart.Position = groundPos
+	groundPart.Parent = workspace
+
+	local approachTween = TS:Create(planeRoot, TweenInfo.new(5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {CFrame = CFrame.new(groundPos) * CFrame.Angles(math.rad(60), 0, 0)})
+	approachTween:Play()
+
+	wait(4.8)
+
+	game.Players.LocalPlayer.PlayerGui.ScreenFade.LocalScript.Fade:Fire(Color3.fromRGB(0, 0, 0), 0.2, 3, 5)
+	script.SoundPlayer.PlaySound:Fire("Play", "CrashImpact")
+	wait(2)
+
+
+	script.SoundPlayer.PlaySound:Fire("Stop", "PlaneEngine")
+	script.SoundPlayer.PlaySound:Fire("Stop", "SeatbeltChime") 
+	script.SoundPlayer.PlaySound:Fire("Stop", "Explosion")
+	script.SoundPlayer.PlaySound:Fire("Stop", "CockpitAlarm")
+	script.SoundPlayer.PlaySound:Fire("Stop", "CockpitAlarmLoud")
+	script.SoundPlayer.PlaySound:Fire("Stop", "CrashImpact")
+
+	if colorEffect then colorEffect:Destroy() end
+	if groundPart then groundPart:Destroy() end
+
+	wait(1)
+
+	game.Players.LocalPlayer.PlayerScripts.CoreUI.Change:Fire("Show")
+	camera.CameraType = Enum.CameraType.Custom
+	playerData.CamLockDisable.Value = false
+	plane:Destroy()
+end)
+
+--[[
+local camera = workspace.CurrentCamera
+local TS = game:GetService("TweenService")
+
+local getData = require(game.ReplicatedStorage.GetData)
+local playerData = nil
+repeat
+	wait()
+	playerData = getData.getDataFromPlayer(game.Players.LocalPlayer)
+until playerData ~= nil
+
+function tweenFov(fov,duration)
+	local tweenFovInfo = TweenInfo.new(duration,Enum.EasingStyle.Linear)
+	local tweenFovData = {FieldOfView = fov}
+	local tweenLight = TS:Create(camera,tweenFovInfo,tweenFovData)
+	tweenLight:Play()
+end
+
+function tweenCamToPart(part,duration,ease)
+	local tweenMoveInfo = nil
+	if ease then
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Sine,Enum.EasingDirection.Out)
+	else
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Linear)
+	end
+	local tweenMoveData = {CFrame = part.CFrame}
+	local tweenMove = TS:Create(camera,tweenMoveInfo,tweenMoveData)
+	tweenMove:Play()
+end
+
+function tweenPart(rootPart,goalPart,duration,ease)
+	local tweenMoveInfo = nil
+	if ease then
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Sine,Enum.EasingDirection.Out)
+	else
+		tweenMoveInfo = TweenInfo.new(duration,Enum.EasingStyle.Linear)
+	end
+	local tweenMoveData = {CFrame = goalPart.CFrame}
+	local tweenMove = TS:Create(rootPart,tweenMoveInfo,tweenMoveData)
+	tweenMove:Play()
+end
+
+function animateRigs(plane)
+	local rigs1 = plane.Characters:GetChildren()
+	for i = 1, #rigs1 do
+		if rigs1[i]:FindFirstChild("Humanoid") then
+			local animNum = math.random(1,3)
+			local anim = script["RigSit"..animNum]
+			local animTrack = rigs1[i].Humanoid.Animator:LoadAnimation(anim)
+			animTrack:Play()
+		end
+	end
+	local rigs2 = plane.Characters.PlayerPossibleRigs:GetChildren()
+	for i = 1, #rigs2 do
+		local animNum = math.random(1,3)
+		local anim = script["RigSit"..animNum]
+		local animTrack = rigs2[i].Humanoid.Animator:LoadAnimation(anim)
+		animTrack:Play()
+	end
+end
+
+function applyRandomToCharacter(npc1, npc2)
+	local humanoid = npc2:FindFirstChild("Humanoid")
+	if not humanoid then
+		return
+	end
+	local bodyColors = npc2:FindFirstChild("Body Colors")
+	if bodyColors then
+		bodyColors:Destroy()
+	end
+	
+	local stuff = npc1:GetChildren()
+	for _, item in pairs(stuff) do
+		if item:IsA("Accessory") then
+			script.AddAccessoryClient.add:Fire(npc2, item)
+		elseif item.Name == "Shirt" then
+			local clone = item:Clone()
+			clone.Parent = npc2
+		elseif item.Name == "Pants" then
+			local clone = item:Clone()
+			clone.Parent = npc2
+		elseif item:IsA("BodyColors") then
+			local clone = item:Clone()
+			clone.Parent = npc2
+		end
+	end
+end
+
+function applyRandomAppearancesToNPC(plane)
+	local NPCs = plane.Characters:GetChildren()
+	for i = 1, #NPCs do
+		if NPCs[i]:FindFirstChild("Humanoid") then
+			local randomNPCs = script.SampleCharacters:GetChildren()
+			local randomNPC = randomNPCs[math.random(1,#randomNPCs)]
+			applyRandomToCharacter(randomNPC, NPCs[i])
+		end
+	end
+end
+
+function applyCharacterAppearanceToNPC(userId, NPC)
+	local humanoid = NPC:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		local success, description = pcall(function()
+			return game.Players:GetHumanoidDescriptionFromUserId(userId)
+		end)
+		if success and description then
+			humanoid:ApplyDescription(description)
+		end
+		NPC.gotChar.Value = true
+	end
+end
+function applyPlayerAppearanceToNPCs(plane)
+	local NPCs = plane.Characters.PlayerPossibleRigs:GetChildren()
+	local players = game.Players:GetChildren()
+	for i = 1, #players do
+		applyCharacterAppearanceToNPC(players[i].UserId, NPCs[i])
+	end
+	for i = 1, #NPCs do
+		if NPCs[i].gotChar.Value == false then
+			local randomNPCs = script.SampleCharacters:GetChildren()
+			local randomNPC = randomNPCs[math.random(1,#randomNPCs)]
+			applyRandomToCharacter(randomNPC, NPCs[i])
+		end
+	end
+end
+
+script.Start.Event:Connect(function()
+	game.Players.LocalPlayer.PlayerScripts.CoreUI.Change:Fire("Hide")
+	game.Players.LocalPlayer.PlayerGui.ScreenFade.LocalScript.Fade:Fire(Color3.fromRGB(15, 0, 35),1,3,1)
+	wait(1.5)
+	--Make changes here that need to happen when the screen is faded out/black
+	camera.CameraType = Enum.CameraType.Scriptable
+	playerData.CamLockDisable.Value = true
+	
+	game.Players.LocalPlayer.PlayerGui.LoadScreen.Enabled = false
+	local scenePositions = game.ReplicatedStorage.PlaneCrashScene
+	local plane = game.ReplicatedStorage.PlaneModelRigged:Clone()
+	plane.Parent = workspace
+	local planeRoot = plane.RootPart
+	planeRoot.CFrame = scenePositions.Plane1.CFrame
+	local planeAnim = plane.AnimationController:LoadAnimation(script.PlaneAnim)
+	planeAnim:Play()
+	camera.CFrame = scenePositions.CamSpot1.CFrame
+	animateRigs(plane)
+	applyRandomAppearancesToNPC(plane)
+	applyPlayerAppearanceToNPCs(plane)
+	
+	wait(2.5)
+	--Cutscene start
+	script.SoundPlayer.PlaySound:Fire("FadeIn", "PlaneEngine")
+	camera.CFrame = scenePositions.CamSpot1.CFrame
+	tweenCamToPart(scenePositions.CamSpot2, 7)
+	tweenPart(planeRoot, scenePositions.Plane2, 7)
+	tweenFov(85,7)
+	wait(7)
+	-- Cutscene End 
+	game.Players.LocalPlayer.PlayerScripts.CoreUI.Change:Fire("Show")
+	camera.CameraType = Enum.CameraType.Custom
+	
+	
+end)
+
+]]--
